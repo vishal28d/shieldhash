@@ -1,0 +1,10 @@
+name: shieldhash
+description: A bcrypt-style password hashing library for Dart/Flutter using PBKDF2-HMAC-SHA256. API mirrors bcrypt (genSalt, hash, compare).
+version: 0.0.1
+homepage: https://github.com/yourname/shieldhash
+environment:
+  sdk: '>=2.17.0 <4.0.0'
+dependencies:
+  crypto: ^3.0.2
+dev_dependencies:
+  test: ^1.21.0
