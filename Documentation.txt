@@ -1,0 +1,269 @@
+// =============================================================
+//  SHIELDHASH DOCUMENTATION FILE
+//  This file explains how the shieldhash library works,
+//  how to use it, and how to integrate it into your project.
+//  The entire document is written using Dart comments so it
+//  can be viewed in IDEs or as part of generated documentation.
+//
+//  Save this file as: docs/documentation.dart
+// =============================================================
+
+/*
+
+----------------------------------------------------------------
+OVERVIEW
+----------------------------------------------------------------
+
+shieldhash is a password hashing library for Dart and Flutter.
+It is designed to provide a simple, predictable, and secure
+interface for hashing and verifying passwords. Its goals include:
+
+1. Offering a clean and clear hashing API that is easy to use.
+2. Using secure, modern cryptographic building blocks.
+3. Working identically across all Dart targets:
+      - Flutter mobile
+      - Flutter web
+      - Dart VM
+      - Server-side Dart
+      - Desktop environments
+4. Being dependency-light and portable.
+
+shieldhash uses PBKDF2-HMAC-SHA256 internally, with an
+exponential cost factor defined by a "rounds" parameter.
+This produces a slow, computationally expensive hash that is
+appropriate for password storage.
+
+The library exposes three main functions:
+
+    genSalt()
+    hash()
+    compare()
+
+The combination of these functions allows applications to hash
+passwords for storage and validate user login attempts.
+
+----------------------------------------------------------------
+INSTALLATION
+----------------------------------------------------------------
+
+In your pubspec.yaml:
+
+    dependencies:
+      shieldhash: ^0.0.1
+
+Then import the library:
+
+    import 'package:shieldhash/shieldhash.dart';
+
+----------------------------------------------------------------
+BASIC USAGE
+----------------------------------------------------------------
+
+1. Hashing a password:
+
+    final hashed = hash("myPassword", rounds: 12);
+
+The returned string can be saved directly into a database. It
+contains all information required to verify the password later:
+the algorithm version, the rounds value, the salt, and the
+derived key.
+
+2. Verifying a password:
+
+    final ok = compare("myPassword", hashed);
+
+This returns true if the password matches, or false otherwise. It
+is implemented using timing-safe comparison to avoid leaking
+timing information.
+
+3. Selecting rounds:
+
+The rounds parameter determines how slow the hash function is.
+Internally, the number of PBKDF2 iterations is:
+
+    iterations = 2^rounds
+
+The default rounds value is 12. Higher values are slower and
+more secure; lower values are faster but less resistant to brute
+force attempts. Select a value based on the performance
+characteristics of your environment.
+
+----------------------------------------------------------------
+THE SHIELDHASH FORMAT
+----------------------------------------------------------------
+
+A complete shieldhash output includes several components joined
+by the '$' character. The format is:
+
+    $shield$<version>$<rounds>$<saltBase64>$<derivedKeyBase64>
+
+Example:
+
+    $shield$1$12$A92hdks81KsjLmSZ$A71sjd912ljas912lkjasd1sl21s9=
+
+These fields are:
+
+1. Prefix: "$shield$"
+2. Version: currently "1"
+3. Rounds: work factor used to compute iterations
+4. Salt: random 16-byte value encoded with URL-safe base64
+5. Derived key: final key output of PBKDF2-HMAC-SHA256
+
+Every string produced by hash() uses this format. The compare()
+function expects the stored string to follow this structure.
+
+----------------------------------------------------------------
+GENERATION OF SALT
+----------------------------------------------------------------
+
+A salt is generated using Dart's Random.secure() implementation,
+which provides cryptographically secure random numbers.
+
+Salt properties:
+
+- Length: 16 bytes
+- Encoding: URL-safe base64 without padding
+- Never reused across hashes
+- Included in the final hash output
+
+The purpose of a salt is to ensure that two identical passwords
+do not produce the same hash, and to defend against precomputed
+table attacks.
+
+----------------------------------------------------------------
+HASHING DETAILS
+----------------------------------------------------------------
+
+The shieldhash library internally performs the following steps
+when hashing a password:
+
+1. Generate a random salt.
+2. Determine the number of PBKDF2 iterations based on rounds:
+       iterations = 2^rounds
+3. Apply PBKDF2-HMAC-SHA256 using:
+       - the password bytes
+       - the salt bytes
+       - the computed iteration count
+       - a derived key length of 32 bytes
+4. Encode the salt and derived key using base64url
+5. Produce a formatted string according to the shieldhash
+   specification mentioned earlier.
+
+Example:
+
+    final h = hash("example", rounds: 12);
+
+----------------------------------------------------------------
+VERIFICATION DETAILS
+----------------------------------------------------------------
+
+Given a stored shieldhash string and a candidate password, the
+comparison process works as follows:
+
+1. The stored string is parsed into:
+       - version
+       - rounds
+       - salt
+       - derived key
+2. The same hashing procedure is re-run using:
+       - the candidate password
+       - the stored salt
+       - the stored rounds value
+3. The newly computed derived key is compared to the stored key
+   using a constant-time comparison function.
+4. The result is returned as a boolean.
+
+This workflow ensures:
+
+- Consistency with the original hashing settings.
+- Security even when passwords vary in length.
+- No data leaks through timing differences.
+
+----------------------------------------------------------------
+ERROR HANDLING
+----------------------------------------------------------------
+
+The compare() function returns false in the following cases:
+
+- The stored format is invalid or malformed.
+- The version number is unsupported.
+- The rounds value is out of range.
+- The stored salt or derived key cannot be decoded.
+- Any internal error occurs during the comparison process.
+
+The hash() function will throw ArgumentError if:
+
+- Rounds is below the minimum allowed value.
+- Rounds is above the maximum allowed value.
+
+----------------------------------------------------------------
+PERFORMANCE GUIDELINES
+----------------------------------------------------------------
+
+The correct choice of rounds depends on the platform:
+
+Mobile Devices:
+    rounds: 12
+    Suitable for most Flutter applications.
+
+Server Environments:
+    rounds: 12-14
+    Offers stronger computational hardness.
+
+Constrained Devices:
+    rounds: 10
+    Faster but less secure.
+
+It is important to benchmark these values on your target system
+to determine acceptable performance.
+
+----------------------------------------------------------------
+SECURITY GUIDELINES
+----------------------------------------------------------------
+
+Several best practices apply when using this library:
+
+1. Always store the full hash string exactly as produced.
+2. Never truncate or modify the hash string.
+3. Never reuse salts.
+4. Never lower rounds below the library's minimum.
+5. Always use compare() for verification.
+6. Never store passwords in plaintext.
+7. Consider rehashing stored passwords when upgrading rounds.
+
+----------------------------------------------------------------
+EXAMPLE WORKFLOW
+----------------------------------------------------------------
+
+User Registration:
+
+    final hashValue = hash(newPassword, rounds: 12);
+    saveToDatabase(username, hashValue);
+
+User Login:
+
+    final stored = getHashFromDatabase(username);
+    final ok = compare(enteredPassword, stored);
+
+    if (ok) {
+        // allow login
+    } else {
+        // deny login
+    }
+
+----------------------------------------------------------------
+SUMMARY
+----------------------------------------------------------------
+
+shieldhash provides a stable, portable, and secure way to hash
+passwords within the Dart ecosystem. It is designed to be easy to
+use while exposing all necessary internal mechanisms for proper
+password storage and verification.
+
+This documentation file may be included in a GitHub repository,
+linked from the README, or used to generate API documentation
+for developers.
+
+----------------------------------------------------------------
+
+*/

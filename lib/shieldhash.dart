@@ -71,7 +71,7 @@ Uint8List _b64Decode(String s) {
 Uint8List _pbkdf2(Uint8List password, Uint8List salt, int iterations, int dkLen) {
   final hLen = 32; // sha256 output length
   final l = (dkLen + hLen - 1) ~/ hLen;
-  final r = dkLen - (l - 1) * hLen;
+  // final r = dkLen - (l - 1) * hLen;
 
   final result = Uint8List(l * hLen);
   for (var i = 1; i <= l; i++) {
